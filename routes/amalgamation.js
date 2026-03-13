@@ -41,12 +41,12 @@ router.get('/api/amalgamation/modules', async (req, res) => {
 router.get('/api/amalgamation', async (req, res) => {
     const { version, modules: modulesParam, ext, filename } = req.query;
 
-    if (!version || !modulesParam) {
-        return res.status(400).json({ error: 'version and modules parameters are required' });
+    if (!version) {
+        return res.status(400).json({ error: 'version parameter is required' });
     }
 
     if (!validateStringParam(version, MAX_PARAM_LENGTH)
-        || !validateStringParam(modulesParam, MAX_PARAM_LENGTH))
+        || (modulesParam && !validateStringParam(modulesParam, MAX_PARAM_LENGTH)))
     {
         return res.status(400).json({ error: 'Invalid parameters' });
     }
@@ -61,23 +61,29 @@ router.get('/api/amalgamation', async (req, res) => {
         return res.status(400).json({ error: `Unknown version: ${version}` });
     }
 
-    // Parse modules
-    const selectedModules = modulesParam.split(',').map(m => m.trim()).filter(Boolean);
-    if (selectedModules.length === 0) {
-        return res.status(400).json({ error: 'At least one module is required' });
-    }
-
-    if (selectedModules.length > MAX_MODULES) {
-        return res.status(400).json({ error: 'Too many modules' });
-    }
-
-    // Validate modules against the specific version
+    // Fetch version modules (needed for 'all' resolution and validation)
     let versionModules;
     try {
         versionModules = await amalgamation.getModulesForVersion(version);
     } catch (err) {
         console.error('Error getting modules for validation:', err);
         return res.status(500).json({ error: 'Failed to validate modules' });
+    }
+
+    // Parse modules — no modules or 'all' means all modules
+    let selectedModules;
+    if (!modulesParam || modulesParam.trim().toLowerCase() === 'lexbor') {
+        selectedModules = versionModules;
+    } else {
+        selectedModules = modulesParam.split(',').map(m => m.trim()).filter(Boolean);
+    }
+
+    if (selectedModules.length === 0) {
+        return res.status(400).json({ error: 'At least one module is required' });
+    }
+
+    if (selectedModules.length > MAX_MODULES) {
+        return res.status(400).json({ error: 'Too many modules' });
     }
 
     const invalidModules = selectedModules.filter(m => !versionModules.includes(m));
@@ -87,10 +93,10 @@ router.get('/api/amalgamation', async (req, res) => {
         });
     }
 
-    // Validate extension
-    const extension = (ext || 'h').toLowerCase();
-    if (!['h', 'c'].includes(extension)) {
-        return res.status(400).json({ error: 'Extension must be h or c' });
+    // Sanitize extension
+    const extension = (ext || 'h').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!extension) {
+        return res.status(400).json({ error: 'Invalid extension' });
     }
 
     // Sanitize filename

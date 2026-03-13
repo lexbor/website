@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light"><meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Generate Amalgamation — lexbor</title>
 <%- include('header.ejs') %>
     <style>
@@ -24,27 +24,50 @@
         .modules-grid input[type="checkbox"] {
             width: auto;
         }
-        .curl-box {
+        .api-section {
             background: #f5f5f5;
             border: 1px solid #ddd;
             border-radius: 5px;
             padding: 15px;
             margin-top: 20px;
-            font-family: monospace;
             font-size: 0.9em;
-            word-break: break-all;
-            position: relative;
         }
-        .curl-box .copy-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            padding: 4px 10px;
+        .api-section .desc {
+            margin: 12px 0 5px;
             font-size: 0.85em;
+            color: #555;
         }
-        .curl-box code {
-            display: block;
-            padding-right: 60px;
+        .api-section .desc:first-of-type {
+            margin-top: 5px;
+        }
+        .api-section .cmd {
+            position: relative;
+            background: #eee;
+            border-radius: 3px;
+            padding: 8px 65px 8px 10px;
+            margin-bottom: 8px;
+        }
+        .api-section .cmd code {
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .api-section .cmd .copy-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            padding: 3px 8px;
+            font-size: 0.8em;
+        }
+        .api-section .styled-table {
+            margin-top: 12px;
+            font-size: 0.9em;
+        }
+        .api-section .styled-table code {
+            font-family: monospace;
+            background: #e8e8e8;
+            padding: 1px 4px;
+            border-radius: 2px;
+            white-space: nowrap;
         }
         .inline-fields {
             display: flex;
@@ -75,7 +98,7 @@
 <body>
 <%- include('body.ejs') %>
                     <h1>Generate Amalgamation</h1>
-                    <p>Select modules to include in the amalgamation build, then click Generate to download a single file.</p>
+                    <p style="margin-bottom: 20px;">Select modules to include in the amalgamation build. If none are selected, all modules will be included.</p>
 
                     <% if (error) { %>
                         <div style="color: red; margin-bottom: 15px; padding: 10px; border: 1px solid red; border-radius: 3px;">
@@ -116,10 +139,7 @@
                         </div>
                         <div class="form-group">
                             <label><strong>Extension:</strong></label>
-                            <select id="ext-select">
-                                <option value="h" selected>.h</option>
-                                <option value="c">.c</option>
-                            </select>
+                            <input type="text" id="ext-input" value="h" style="width: 80px;">
                         </div>
                     </div>
 
@@ -127,10 +147,32 @@
                         <button type="button" class="btn-success" onclick="generateAmalgamation()">Generate &amp; Download</button>
                     </div>
 
-                    <div id="curl-section" class="curl-box" style="display: none;">
-                        <button type="button" class="copy-btn" onclick="copyCurl()">Copy</button>
-                        <label><strong>curl:</strong></label>
-                        <code id="curl-command"></code>
+                    <div class="api-section">
+                        <strong>API Usage</strong>
+
+                        <p class="desc">Download amalgamation file (<code>-O</code> save to file, <code>-J</code> use server filename):</p>
+                        <div class="cmd">
+                            <code id="curl-download"></code>
+                            <button type="button" class="copy-btn" onclick="copyCurl('curl-download')">Copy</button>
+                        </div>
+
+                        <p class="desc">List available modules for a version:</p>
+                        <div class="cmd">
+                            <code id="curl-modules"></code>
+                            <button type="button" class="copy-btn" onclick="copyCurl('curl-modules')">Copy</button>
+                        </div>
+
+                        <table class="styled-table">
+                            <thead>
+                                <tr><th>Parameter</th><th>Description</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>version</code></td><td><code>latest</code> — most recent stable release<br><code>master</code> — development branch (latest commit)<br>or a release tag, e.g. <code>v2.7.0</code></td></tr>
+                                <tr><td><code>modules</code></td><td>Comma-separated list of specific modules (e.g. <code>core,dom,html</code>)<br><code>lexbor</code> — include all available modules<br>or omit the parameter entirely to include all modules</td></tr>
+                                <tr><td><code>ext</code></td><td>File extension, default <code>h</code> (alphanumeric, <code>_</code>, <code>-</code>)</td></tr>
+                                <tr><td><code>filename</code></td><td>Custom output filename (optional, alphanumeric, <code>_</code>, <code>-</code>)</td></tr>
+                            </tbody>
+                        </table>
                     </div>
 
 <%- include('body-end.ejs') %>
@@ -139,9 +181,9 @@
         const modulesContainer = document.getElementById('modules-container');
         const loadingModules = document.getElementById('loading-modules');
         const filenameInput = document.getElementById('filename-input');
-        const extSelect = document.getElementById('ext-select');
-        const curlSection = document.getElementById('curl-section');
-        const curlCommand = document.getElementById('curl-command');
+        const extInput = document.getElementById('ext-input');
+        const curlDownload = document.getElementById('curl-download');
+        const curlModules = document.getElementById('curl-modules');
 
         function getSelectedModules() {
             return Array.from(document.querySelectorAll('input[name="modules"]:checked'))
@@ -153,21 +195,45 @@
                 .map(cb => cb.value);
         }
 
+        function isNoneOrAllSelected() {
+            const all = getAllModules();
+            const selected = getSelectedModules();
+            return selected.length === 0 || (all.length > 0 && selected.length === all.length);
+        }
+
+        function getAutoFilename() {
+            const selected = getSelectedModules();
+            if (isNoneOrAllSelected()) return 'lexbor';
+            return [...selected].sort().join('_');
+        }
+
+        function updateFilenamePreview() {
+            const userInput = filenameInput.value.replace(/[^a-zA-Z0-9_-]/g, '');
+            if (!userInput) {
+                filenameInput.placeholder = getAutoFilename() || 'leave empty for auto';
+            }
+        }
+
         function toggleAll(checked) {
             document.querySelectorAll('input[name="modules"]').forEach(cb => cb.checked = checked);
+            updateFilenamePreview();
             updateCurl();
         }
 
-        function buildApiUrl() {
+        function buildDownloadUrl(forCurl) {
             const version = versionSelect.value;
             const modules = getSelectedModules();
-            const ext = extSelect.value;
+            const ext = extInput.value.replace(/[^a-zA-Z0-9_-]/g, '') || 'h';
             const filename = filenameInput.value.replace(/[^a-zA-Z0-9_-]/g, '');
 
-            if (modules.length === 0) return null;
-
             let url = `/api/amalgamation?version=${encodeURIComponent(version)}`;
-            url += `&modules=${encodeURIComponent(modules.join(','))}`;
+
+            if (forCurl && isNoneOrAllSelected()) {
+                url += '&modules=lexbor';
+            } else if (modules.length > 0) {
+                url += `&modules=${encodeURIComponent(modules.join(','))}`;
+            }
+
             url += `&ext=${encodeURIComponent(ext)}`;
 
             if (filename) {
@@ -178,22 +244,17 @@
         }
 
         function updateCurl() {
-            const url = buildApiUrl();
+            const version = versionSelect.value;
+            const origin = window.location.origin;
 
-            if (!url) {
-                curlSection.style.display = 'none';
-                return;
-            }
-
-            const fullUrl = window.location.origin + url;
-            curlCommand.textContent = `curl -OJ "${fullUrl}"`;
-            curlSection.style.display = 'block';
+            curlDownload.textContent = `curl -OJ "${origin}${buildDownloadUrl(true)}"`;
+            curlModules.textContent = `curl "${origin}/api/amalgamation/modules?version=${encodeURIComponent(version)}"`;
         }
 
-        function copyCurl() {
-            const text = curlCommand.textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = document.querySelector('.copy-btn');
+        function copyCurl(elementId) {
+            const el = document.getElementById(elementId);
+            navigator.clipboard.writeText(el.textContent).then(() => {
+                const btn = el.parentElement.querySelector('.copy-btn');
                 const orig = btn.textContent;
                 btn.textContent = 'Copied!';
                 setTimeout(() => { btn.textContent = orig; }, 1500);
@@ -201,12 +262,7 @@
         }
 
         function generateAmalgamation() {
-            const url = buildApiUrl();
-            if (!url) {
-                alert('Please select at least one module.');
-                return;
-            }
-            window.location = url;
+            window.location = buildDownloadUrl(false);
         }
 
         async function loadModules(version) {
@@ -223,7 +279,7 @@
                 }
 
                 modulesContainer.innerHTML = data.modules.map(mod =>
-                    `<label><input type="checkbox" name="modules" value="${mod}" onchange="updateCurl()"> ${mod}</label>`
+                    `<label><input type="checkbox" name="modules" value="${mod}" onchange="updateFilenamePreview(); updateCurl()"> ${mod}</label>`
                 ).join('');
             } catch (err) {
                 console.error('Failed to load modules:', err);
@@ -240,13 +296,17 @@
             loadModules(versionSelect.value);
         });
 
-        filenameInput.addEventListener('input', updateCurl);
-        extSelect.addEventListener('change', updateCurl);
+        filenameInput.addEventListener('input', () => { updateFilenamePreview(); updateCurl(); });
+        extInput.addEventListener('input', updateCurl);
 
         // Add onchange to initial checkboxes
         document.querySelectorAll('input[name="modules"]').forEach(cb => {
-            cb.addEventListener('change', updateCurl);
+            cb.addEventListener('change', () => { updateFilenamePreview(); updateCurl(); });
         });
+
+        // Initialize curl on page load
+        updateFilenamePreview();
+        updateCurl();
     </script>
 <%- include('footer.ejs') %>
 </body>
