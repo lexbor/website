@@ -14,6 +14,12 @@ const io = socketIo(server);
 const port = 3000;
 
 const FUZZERS_FILE = path.join(__dirname, 'fuzzers.json');
+const LEXBOR_DIR = process.env.LEXBOR_DIR || path.join(__dirname, '..', 'lexbor');
+const LEXBOR_REPO_URL = process.env.LEXBOR_REPO_URL || 'https://github.com/lexbor/lexbor.git';
+const AMALGAMATION_CACHE_DIR = path.join(__dirname, '.amalgamation_cache');
+
+const amalgamationLib = require('./lib/amalgamation');
+amalgamationLib.init(LEXBOR_DIR, AMALGAMATION_CACHE_DIR, LEXBOR_REPO_URL);
 
 if (!process.env.LEXBOR_SECRET
     || !process.env.LEXBOR_ADMIN
@@ -174,6 +180,9 @@ io.engine.use(sessionMiddleware);
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Amalgamation routes
+app.use(require('./routes/amalgamation'));
 
 // Authentication middleware
 const requireAuth = (req, res, next) => {
@@ -589,6 +598,16 @@ setInterval(() => {
         }
     });
 }, 10 * 60 * 1000); // 10 minutes
+
+// Fetch lexbor updates (every 5 minutes)
+setInterval(() => {
+    amalgamationLib.fetchUpdates();
+}, 5 * 60 * 1000);
+
+// Cleanup stale master cache (every hour)
+setInterval(() => {
+    amalgamationLib.cleanupMasterCache();
+}, 60 * 60 * 1000);
 
 // Broadcast fuzzer stats (every 2 seconds)
 setInterval(async () => {

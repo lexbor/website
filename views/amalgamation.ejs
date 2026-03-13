@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Generate Amalgamation — lexbor</title>
+<%- include('header.ejs') %>
+    <style>
+        .modules-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px 20px;
+            margin: 10px 0;
+        }
+        .modules-grid label {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: normal;
+            width: auto;
+            cursor: pointer;
+        }
+        .modules-grid input[type="checkbox"] {
+            width: auto;
+        }
+        .curl-box {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+            position: relative;
+        }
+        .curl-box .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 10px;
+            font-size: 0.85em;
+        }
+        .curl-box code {
+            display: block;
+            padding-right: 60px;
+        }
+        .inline-fields {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        .inline-fields .form-group {
+            margin-bottom: 0;
+        }
+        .inline-fields input[type="text"] {
+            width: 250px;
+        }
+        .inline-fields select {
+            padding: 8px;
+        }
+        .btn-group {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        #loading-modules {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+<%- include('body.ejs') %>
+                    <h1>Generate Amalgamation</h1>
+                    <p>Select modules to include in the amalgamation build, then click Generate to download a single file.</p>
+
+                    <% if (error) { %>
+                        <div style="color: red; margin-bottom: 15px; padding: 10px; border: 1px solid red; border-radius: 3px;">
+                            <%= error %>
+                        </div>
+                    <% } %>
+
+                    <div class="form-group">
+                        <label><strong>Version:</strong></label>
+                        <select id="version-select" style="padding: 8px; width: 200px;">
+                            <% versions.forEach(v => { %>
+                                <option value="<%= v %>"><%= v %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label><strong>Modules:</strong></label>
+                        <span id="loading-modules" style="display: none;">Loading modules...</span>
+                        <div id="modules-container" class="modules-grid">
+                            <% modules.forEach(mod => { %>
+                                <label>
+                                    <input type="checkbox" name="modules" value="<%= mod %>"> <%= mod %>
+                                </label>
+                            <% }); %>
+                        </div>
+                    </div>
+
+                    <div class="btn-group" style="margin-top: 5px; margin-bottom: 15px;">
+                        <button type="button" onclick="toggleAll(true)">Select All</button>
+                        <button type="button" onclick="toggleAll(false)">Deselect All</button>
+                    </div>
+
+                    <div class="inline-fields">
+                        <div class="form-group">
+                            <label><strong>Filename:</strong></label>
+                            <input type="text" id="filename-input" placeholder="leave empty for auto">
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Extension:</strong></label>
+                            <select id="ext-select">
+                                <option value="h" selected>.h</option>
+                                <option value="c">.c</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="button" class="btn-success" onclick="generateAmalgamation()">Generate &amp; Download</button>
+                    </div>
+
+                    <div id="curl-section" class="curl-box" style="display: none;">
+                        <button type="button" class="copy-btn" onclick="copyCurl()">Copy</button>
+                        <label><strong>curl:</strong></label>
+                        <code id="curl-command"></code>
+                    </div>
+
+<%- include('body-end.ejs') %>
+    <script>
+        const versionSelect = document.getElementById('version-select');
+        const modulesContainer = document.getElementById('modules-container');
+        const loadingModules = document.getElementById('loading-modules');
+        const filenameInput = document.getElementById('filename-input');
+        const extSelect = document.getElementById('ext-select');
+        const curlSection = document.getElementById('curl-section');
+        const curlCommand = document.getElementById('curl-command');
+
+        function getSelectedModules() {
+            return Array.from(document.querySelectorAll('input[name="modules"]:checked'))
+                .map(cb => cb.value);
+        }
+
+        function getAllModules() {
+            return Array.from(document.querySelectorAll('input[name="modules"]'))
+                .map(cb => cb.value);
+        }
+
+        function toggleAll(checked) {
+            document.querySelectorAll('input[name="modules"]').forEach(cb => cb.checked = checked);
+            updateCurl();
+        }
+
+        function buildApiUrl() {
+            const version = versionSelect.value;
+            const modules = getSelectedModules();
+            const ext = extSelect.value;
+            const filename = filenameInput.value.replace(/[^a-zA-Z0-9_-]/g, '');
+
+            if (modules.length === 0) return null;
+
+            let url = `/api/amalgamation?version=${encodeURIComponent(version)}`;
+            url += `&modules=${encodeURIComponent(modules.join(','))}`;
+            url += `&ext=${encodeURIComponent(ext)}`;
+
+            if (filename) {
+                url += `&filename=${encodeURIComponent(filename)}`;
+            }
+
+            return url;
+        }
+
+        function updateCurl() {
+            const url = buildApiUrl();
+
+            if (!url) {
+                curlSection.style.display = 'none';
+                return;
+            }
+
+            const fullUrl = window.location.origin + url;
+            curlCommand.textContent = `curl -OJ "${fullUrl}"`;
+            curlSection.style.display = 'block';
+        }
+
+        function copyCurl() {
+            const text = curlCommand.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            });
+        }
+
+        function generateAmalgamation() {
+            const url = buildApiUrl();
+            if (!url) {
+                alert('Please select at least one module.');
+                return;
+            }
+            window.location = url;
+        }
+
+        async function loadModules(version) {
+            loadingModules.style.display = 'inline';
+            modulesContainer.style.opacity = '0.5';
+
+            try {
+                const resp = await fetch(`/api/amalgamation/modules?version=${encodeURIComponent(version)}`);
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    console.error('Error loading modules:', data.error);
+                    return;
+                }
+
+                modulesContainer.innerHTML = data.modules.map(mod =>
+                    `<label><input type="checkbox" name="modules" value="${mod}" onchange="updateCurl()"> ${mod}</label>`
+                ).join('');
+            } catch (err) {
+                console.error('Failed to load modules:', err);
+            } finally {
+                loadingModules.style.display = 'none';
+                modulesContainer.style.opacity = '1';
+            }
+
+            updateCurl();
+        }
+
+        // Event listeners
+        versionSelect.addEventListener('change', () => {
+            loadModules(versionSelect.value);
+        });
+
+        filenameInput.addEventListener('input', updateCurl);
+        extSelect.addEventListener('change', updateCurl);
+
+        // Add onchange to initial checkboxes
+        document.querySelectorAll('input[name="modules"]').forEach(cb => {
+            cb.addEventListener('change', updateCurl);
+        });
+    </script>
+<%- include('footer.ejs') %>
+</body>
+</html>
