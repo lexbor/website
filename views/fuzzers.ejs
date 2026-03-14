@@ -59,7 +59,17 @@
                     </div>
 
                     <!-- List of Fuzzers -->
-                    <h3>Fuzzer List</h3>
+                    <h3 style="display: inline;">Fuzzer List</h3>
+                    <% if (is_admin === true && fuzzers.length > 0) { %>
+                        <span style="margin-left: 15px;">
+                            <form action="/fuzzers/start-all" method="POST" style="display:inline;">
+                                <button type="submit" class="btn-success">Start All</button>
+                            </form>
+                            <form action="/fuzzers/stop-all" method="POST" style="display:inline;">
+                                <button type="submit" class="btn-danger">Stop All</button>
+                            </form>
+                        </span>
+                    <% } %>
                     <div class="table-wrapper">
                         <table class="styled-table">
                         <thead>

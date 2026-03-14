@@ -410,6 +410,80 @@ app.post('/fuzzers/delete/:id', requireAuth, (req, res) => {
     res.redirect('/fuzzers');
 });
 
+app.post('/fuzzers/start-all', requireAuth, (req, res) => {
+    const fuzzers = getFuzzers();
+
+    for (const fuzzer of fuzzers) {
+        if (fuzzer.pid) continue;
+
+        try {
+            const fuzzerDir = path.dirname(fuzzer.path);
+            const crashDir = fuzzer.crashDir;
+            let corpusDir = fuzzer.corpusDir;
+            const fuzzerName = path.basename(fuzzer.path);
+            const logDir = path.join(fuzzerDir, `${fuzzerName}_logs`);
+            const logPath = path.join(logDir, 'fuzzer.log');
+            let args = [`-artifact_prefix=${crashDir}/`];
+
+            if (fuzzer.dict?.length > 0) {
+                args.push(`-dict=${fuzzer.dict}`);
+            }
+
+            if (fuzzer.args?.length > 0) {
+                const parts = fuzzer.args.trim().split(/\s+/);
+                args.push(...parts);
+            }
+
+            if (!fs.existsSync(crashDir)) fs.mkdirSync(crashDir, { recursive: true });
+            if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+
+            if (!corpusDir) {
+                corpusDir = path.join(fuzzerDir, `${fuzzerName}_corpus`);
+            }
+            if (!fs.existsSync(corpusDir)) fs.mkdirSync(corpusDir, { recursive: true });
+            args.push(corpusDir);
+
+            const out = fs.openSync(logPath, 'a');
+            const err = fs.openSync(logPath, 'a');
+
+            const child = spawn(fuzzer.path, args, {
+                detached: true,
+                stdio: ['ignore', out, err]
+            });
+
+            child.unref();
+
+            fuzzer.pid = child.pid;
+            fuzzer.startTime = new Date().toISOString();
+            fuzzer.logPath = logPath;
+            fuzzer.corpusDir = corpusDir;
+        } catch (err) {
+            console.error(`Failed to start fuzzer ${fuzzer.name}:`, err);
+        }
+    }
+
+    saveFuzzers(fuzzers);
+    res.redirect('/fuzzers');
+});
+
+app.post('/fuzzers/stop-all', requireAuth, (req, res) => {
+    const fuzzers = getFuzzers();
+
+    for (const fuzzer of fuzzers) {
+        if (!fuzzer.pid) continue;
+
+        try {
+            process.kill(fuzzer.pid);
+        } catch (e) {}
+
+        fuzzer.pid = null;
+        fuzzer.startTime = null;
+    }
+
+    saveFuzzers(fuzzers);
+    res.redirect('/fuzzers');
+});
+
 // View Logs Route
 app.get('/fuzzers/logs/:id', (req, res) => {
     const fuzzers = getFuzzers();
