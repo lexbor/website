@@ -332,11 +332,6 @@ app.post('/fuzzers/start/:id', requireAuth, (req, res) => {
                 args.push(...parts);
             }
 
-            if (fuzzer.args?.length > 0) {
-                const parts = fuzzer.args.trim().split(/\s+/);
-                args.push(...parts);
-            }
-
             // Ensure crash directory exists
             if (!fs.existsSync(crashDir)) {
                 fs.mkdirSync(crashDir, { recursive: true });
@@ -366,7 +361,7 @@ app.post('/fuzzers/start/:id', requireAuth, (req, res) => {
                 stdio: ['ignore', out, err]
             });
 
-            child.unref(); // Allow parent to exit independently
+            child.unref();
 
             fuzzer.pid = child.pid;
             fuzzer.startTime = new Date().toISOString();
