@@ -29,8 +29,9 @@ router.get('/api/amalgamation/modules', async (req, res) => {
 
     try {
         const modules = await amalgamation.getModulesForVersion(version);
+        const deps = await amalgamation.getDepsForVersion(version);
         const resolved = amalgamation.resolveVersion(version);
-        res.json({ modules, version: resolved });
+        res.json({ modules, dependencies: deps, version: resolved });
     } catch (err) {
         console.error('Error getting modules:', err);
         res.status(500).json({ error: 'Failed to get modules' });
@@ -141,11 +142,13 @@ router.get('/generate/amalgamation', async (req, res) => {
         const versions = amalgamation.getAvailableVersions();
         const defaultVersion = versions[0] || 'latest';
         const modules = await amalgamation.getModulesForVersion(defaultVersion);
+        const deps = await amalgamation.getDepsForVersion(defaultVersion);
 
         res.render('amalgamation', {
             title: 'Generate Amalgamation',
             versions,
             modules,
+            deps,
             error: req.query.error || null
         });
     } catch (err) {
@@ -154,6 +157,7 @@ router.get('/generate/amalgamation', async (req, res) => {
             title: 'Generate Amalgamation',
             versions: [],
             modules: [],
+            deps: {},
             error: 'Failed to load versions and modules'
         });
     }

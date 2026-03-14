@@ -89,6 +89,20 @@
             gap: 8px;
             align-items: center;
         }
+        .modules-grid label.is-dep {
+            color: #0a7e3e;
+            font-weight: bold;
+        }
+        .modules-legend {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+            display: none;
+        }
+        .modules-legend span {
+            color: #0a7e3e;
+            font-weight: bold;
+        }
         #loading-modules {
             color: #888;
             font-style: italic;
@@ -124,6 +138,9 @@
                                     <input type="checkbox" name="modules" value="<%= mod %>"> <%= mod %>
                                 </label>
                             <% }); %>
+                        </div>
+                        <div id="modules-legend" class="modules-legend">
+                            <span>Bold</span> modules will be included automatically as dependencies.
                         </div>
                     </div>
 
@@ -185,6 +202,8 @@
         const curlDownload = document.getElementById('curl-download');
         const curlModules = document.getElementById('curl-modules');
 
+        let moduleDeps = <%- JSON.stringify(deps) %>;
+
         function getSelectedModules() {
             return Array.from(document.querySelectorAll('input[name="modules"]:checked'))
                 .map(cb => cb.value);
@@ -214,10 +233,42 @@
             }
         }
 
+        function getResolvedDeps(selected) {
+            const result = new Set();
+            function resolve(mod) {
+                if (result.has(mod)) return;
+                const deps = moduleDeps[mod];
+                if (!deps) return;
+                for (const dep of deps) {
+                    if (!selected.includes(dep)) {
+                        result.add(dep);
+                    }
+                    resolve(dep);
+                }
+            }
+            for (const mod of selected) resolve(mod);
+            return result;
+        }
+
+        function highlightDeps() {
+            const selected = getSelectedModules();
+            const deps = selected.length > 0 && !isNoneOrAllSelected()
+                ? getResolvedDeps(selected) : new Set();
+
+            document.querySelectorAll('input[name="modules"]').forEach(cb => {
+                const label = cb.parentElement;
+                label.classList.toggle('is-dep', deps.has(cb.value));
+            });
+
+            document.getElementById('modules-legend').style.display =
+                deps.size > 0 ? 'block' : 'none';
+        }
+
         function toggleAll(checked) {
             document.querySelectorAll('input[name="modules"]').forEach(cb => cb.checked = checked);
             updateFilenamePreview();
             updateCurl();
+            highlightDeps();
         }
 
         function buildDownloadUrl(forCurl) {
@@ -278,8 +329,10 @@
                     return;
                 }
 
+                moduleDeps = data.dependencies || {};
+
                 modulesContainer.innerHTML = data.modules.map(mod =>
-                    `<label><input type="checkbox" name="modules" value="${mod}" onchange="updateFilenamePreview(); updateCurl()"> ${mod}</label>`
+                    `<label><input type="checkbox" name="modules" value="${mod}" onchange="onModuleChange()"> ${mod}</label>`
                 ).join('');
             } catch (err) {
                 console.error('Failed to load modules:', err);
@@ -288,6 +341,7 @@
                 modulesContainer.style.opacity = '1';
             }
 
+            highlightDeps();
             updateCurl();
         }
 
@@ -299,14 +353,21 @@
         filenameInput.addEventListener('input', () => { updateFilenamePreview(); updateCurl(); });
         extInput.addEventListener('input', updateCurl);
 
+        function onModuleChange() {
+            updateFilenamePreview();
+            updateCurl();
+            highlightDeps();
+        }
+
         // Add onchange to initial checkboxes
         document.querySelectorAll('input[name="modules"]').forEach(cb => {
-            cb.addEventListener('change', () => { updateFilenamePreview(); updateCurl(); });
+            cb.addEventListener('change', onModuleChange);
         });
 
-        // Initialize curl on page load
+        // Initialize on page load
         updateFilenamePreview();
         updateCurl();
+        highlightDeps();
     </script>
 <%- include('footer.ejs') %>
 </body>
