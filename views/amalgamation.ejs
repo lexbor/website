@@ -149,6 +149,23 @@
                         <button type="button" onclick="toggleAll(false)">Deselect All</button>
                     </div>
 
+                    <div class="form-group">
+                        <label><strong>Ports:</strong></label>
+                        <span id="loading-ports" style="display: none; color: #888; font-style: italic;">Loading ports...</span>
+                        <div id="ports-container" class="modules-grid">
+                            <% ports.forEach(p => { %>
+                                <label>
+                                    <input type="checkbox" name="ports" value="<%= p %>" checked onchange="onPortChange()"> <%= p %>
+                                </label>
+                            <% }); %>
+                        </div>
+                        <div style="font-size: 0.85em; color: #666; margin-top: 3px;">
+                            If more than one port is selected, platform-specific code for each OS will be included and guarded by preprocessor directives.
+                            <a href="/amalgamation/#ports">Documentation</a>.<br>
+                            If no ports are specified, all available ports are included by default.
+                        </div>
+                    </div>
+
                     <div class="inline-fields">
                         <div class="form-group">
                             <label><strong>Filename:</strong></label>
@@ -179,6 +196,12 @@
                             <button type="button" class="copy-btn" onclick="copyCurl('curl-modules')">Copy</button>
                         </div>
 
+                        <p class="desc">List available ports for a version:</p>
+                        <div class="cmd">
+                            <code id="curl-ports"></code>
+                            <button type="button" class="copy-btn" onclick="copyCurl('curl-ports')">Copy</button>
+                        </div>
+
                         <table class="styled-table">
                             <thead>
                                 <tr><th>Parameter</th><th>Description</th></tr>
@@ -187,6 +210,7 @@
                                 <tr><td><code>version</code></td><td><code>latest</code> — most recent stable release<br><code>master</code> — development branch (latest commit)<br>or a release tag, e.g. <code>v2.7.0</code></td></tr>
                                 <tr><td><code>modules</code></td><td>Comma-separated list of specific modules (e.g. <code>core,dom,html</code>)<br><code>lexbor</code> — include all available modules<br>or omit the parameter entirely to include all modules</td></tr>
                                 <tr><td><code>ext</code></td><td>File extension, default <code>h</code> (alphanumeric, <code>_</code>, <code>-</code>)</td></tr>
+                                <tr><td><code>port</code></td><td>Port name, default <code>all</code> (e.g. <code>posix</code>, <code>windows_nt</code>, or comma-separated)</td></tr>
                                 <tr><td><code>filename</code></td><td>Custom output filename (optional, alphanumeric, <code>_</code>, <code>-</code>)</td></tr>
                             </tbody>
                         </table>
@@ -199,8 +223,11 @@
         const loadingModules = document.getElementById('loading-modules');
         const filenameInput = document.getElementById('filename-input');
         const extInput = document.getElementById('ext-input');
+        const portsContainer = document.getElementById('ports-container');
+        const loadingPorts = document.getElementById('loading-ports');
         const curlDownload = document.getElementById('curl-download');
         const curlModules = document.getElementById('curl-modules');
+        const curlPorts = document.getElementById('curl-ports');
 
         let moduleDeps = <%- JSON.stringify(deps) %>;
 
@@ -271,11 +298,33 @@
             highlightDeps();
         }
 
+        function getSelectedPorts() {
+            return Array.from(document.querySelectorAll('input[name="ports"]:checked'))
+                .map(cb => cb.value);
+        }
+
+        function getAllPorts() {
+            return Array.from(document.querySelectorAll('input[name="ports"]'))
+                .map(cb => cb.value);
+        }
+
+        function isAllPortsSelected() {
+            const all = getAllPorts();
+            const selected = getSelectedPorts();
+            return all.length > 0 && selected.length === all.length;
+        }
+
+        function onPortChange() {
+            updateCurl();
+        }
+
         function buildDownloadUrl(forCurl) {
             const version = versionSelect.value;
             const modules = getSelectedModules();
             const ext = extInput.value.replace(/[^a-zA-Z0-9_-]/g, '') || 'h';
             const filename = filenameInput.value.replace(/[^a-zA-Z0-9_-]/g, '');
+            const selectedPorts = getSelectedPorts();
+            const portValue = isAllPortsSelected() ? 'all' : selectedPorts.join(',');
 
             let url = `/api/amalgamation?version=${encodeURIComponent(version)}`;
 
@@ -291,6 +340,10 @@
                 url += `&filename=${encodeURIComponent(filename)}`;
             }
 
+            if (portValue && portValue !== 'all') {
+                url += `&port=${encodeURIComponent(portValue)}`;
+            }
+
             return url;
         }
 
@@ -300,6 +353,7 @@
 
             curlDownload.textContent = `curl -OJ "${origin}${buildDownloadUrl(true)}"`;
             curlModules.textContent = `curl "${origin}/api/amalgamation/modules?version=${encodeURIComponent(version)}"`;
+            curlPorts.textContent = `curl "${origin}/api/amalgamation/ports?version=${encodeURIComponent(version)}"`;
         }
 
         function copyCurl(elementId) {
@@ -318,7 +372,9 @@
 
         async function loadModules(version) {
             loadingModules.style.display = 'inline';
+            loadingPorts.style.display = 'inline';
             modulesContainer.style.opacity = '0.5';
+            portsContainer.style.opacity = '0.5';
 
             try {
                 const resp = await fetch(`/api/amalgamation/modules?version=${encodeURIComponent(version)}`);
@@ -331,14 +387,40 @@
 
                 moduleDeps = data.dependencies || {};
 
-                modulesContainer.innerHTML = data.modules.map(mod =>
-                    `<label><input type="checkbox" name="modules" value="${mod}" onchange="onModuleChange()"> ${mod}</label>`
-                ).join('');
+                modulesContainer.innerHTML = '';
+                data.modules.forEach(mod => {
+                    const label = document.createElement('label');
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.name = 'modules';
+                    input.value = mod;
+                    input.addEventListener('change', onModuleChange);
+                    label.appendChild(input);
+                    label.appendChild(document.createTextNode(' ' + mod));
+                    modulesContainer.appendChild(label);
+                });
+
+                const ports = data.ports || [];
+                portsContainer.innerHTML = '';
+                ports.forEach(p => {
+                    const label = document.createElement('label');
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.name = 'ports';
+                    input.value = p;
+                    input.checked = true;
+                    input.addEventListener('change', onPortChange);
+                    label.appendChild(input);
+                    label.appendChild(document.createTextNode(' ' + p));
+                    portsContainer.appendChild(label);
+                });
             } catch (err) {
                 console.error('Failed to load modules:', err);
             } finally {
                 loadingModules.style.display = 'none';
+                loadingPorts.style.display = 'none';
                 modulesContainer.style.opacity = '1';
+                portsContainer.style.opacity = '1';
             }
 
             highlightDeps();

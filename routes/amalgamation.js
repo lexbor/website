@@ -30,17 +30,45 @@ router.get('/api/amalgamation/modules', async (req, res) => {
     try {
         const modules = await amalgamation.getModulesForVersion(version);
         const deps = await amalgamation.getDepsForVersion(version);
+        const ports = await amalgamation.getPortsForVersion(version);
         const resolved = amalgamation.resolveVersion(version);
-        res.json({ modules, dependencies: deps, version: resolved });
+        res.json({ modules, dependencies: deps, ports, version: resolved });
     } catch (err) {
         console.error('Error getting modules:', err);
         res.status(500).json({ error: 'Failed to get modules' });
     }
 });
 
+// GET /api/amalgamation/ports?version=...
+router.get('/api/amalgamation/ports', async (req, res) => {
+    const { version } = req.query;
+
+    if (!version) {
+        return res.status(400).json({ error: 'version parameter is required' });
+    }
+
+    if (!validateStringParam(version, MAX_PARAM_LENGTH)) {
+        return res.status(400).json({ error: 'Invalid version parameter' });
+    }
+
+    const available = amalgamation.getAvailableVersions();
+    if (!available.includes(version)) {
+        return res.status(400).json({ error: `Unknown version: ${version}` });
+    }
+
+    try {
+        const ports = await amalgamation.getPortsForVersion(version);
+        const resolved = amalgamation.resolveVersion(version);
+        res.json({ ports, version: resolved });
+    } catch (err) {
+        console.error('Error getting ports:', err);
+        res.status(500).json({ error: 'Failed to get ports' });
+    }
+});
+
 // GET /api/amalgamation?version=...&modules=...&ext=...&filename=...
 router.get('/api/amalgamation', async (req, res) => {
-    const { version, modules: modulesParam, ext, filename } = req.query;
+    const { version, modules: modulesParam, ext, filename, port } = req.query;
 
     if (!version) {
         return res.status(400).json({ error: 'version parameter is required' });
@@ -94,6 +122,32 @@ router.get('/api/amalgamation', async (req, res) => {
         });
     }
 
+    // Validate port
+    let portValue = 'all';
+    if (port && port !== 'all') {
+        const sanitized = port.replace(/[^a-zA-Z0-9_,-]/g, '');
+        const requestedPorts = sanitized.split(',').map(p => p.trim()).filter(Boolean);
+
+        let versionPorts;
+        try {
+            versionPorts = await amalgamation.getPortsForVersion(version);
+        } catch (err) {
+            console.error('Error getting ports for validation:', err);
+            return res.status(500).json({ error: 'Failed to validate ports' });
+        }
+
+        const invalidPorts = requestedPorts.filter(p => !versionPorts.includes(p));
+        if (invalidPorts.length > 0) {
+            return res.status(400).json({
+                error: `Ports not available in ${version}: ${invalidPorts.join(', ')}`
+            });
+        }
+
+        if (requestedPorts.length > 0) {
+            portValue = requestedPorts.join(',');
+        }
+    }
+
     // Sanitize extension
     const extension = (ext || 'h').replace(/[^a-zA-Z0-9_-]/g, '');
     if (!extension) {
@@ -109,7 +163,7 @@ router.get('/api/amalgamation', async (req, res) => {
     // Generate
     let result;
     try {
-        result = await amalgamation.generate(version, selectedModules);
+        result = await amalgamation.generate(version, selectedModules, portValue);
     } catch (err) {
         console.error('Error generating amalgamation:', err);
         return res.status(500).json({ error: 'Failed to generate amalgamation' });
@@ -143,12 +197,14 @@ router.get('/generate/amalgamation', async (req, res) => {
         const defaultVersion = versions[0] || 'latest';
         const modules = await amalgamation.getModulesForVersion(defaultVersion);
         const deps = await amalgamation.getDepsForVersion(defaultVersion);
+        const ports = await amalgamation.getPortsForVersion(defaultVersion);
 
         res.render('amalgamation', {
             title: 'Generate Amalgamation',
             versions,
             modules,
             deps,
+            ports,
             error: req.query.error || null
         });
     } catch (err) {
@@ -158,6 +214,7 @@ router.get('/generate/amalgamation', async (req, res) => {
             versions: [],
             modules: [],
             deps: {},
+            ports: [],
             error: 'Failed to load versions and modules'
         });
     }
