@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light"><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Developers — lexbor</title>
+<%- include('header.ejs') %>
+</head>
+<body>
+<%- include('body.ejs') %>
+                    <h1>Developers</h1>
+
+                    <div style="margin-top: 20px;">
+                        <ul style="list-style: none; padding: 0;">
+                            <li style="margin-bottom: 15px;">
+                                <a href="/generate/amalgamation" style="font-size: 18px;">Amalgamation</a>
+                                <p style="margin: 5px 0 0 0; color: #666;">Generate amalgamation files for embedding lexbor into your project.</p>
+                            </li>
+                            <li style="margin-bottom: 15px;">
+                                <a href="/fuzzers" style="font-size: 18px;">Fuzzers</a>
+                                <p style="margin: 5px 0 0 0; color: #666;">Manage and monitor fuzz testing processes.</p>
+                            </li>
+                            <li style="margin-bottom: 15px;">
+                                <a href="/roadmap/" style="font-size: 18px;">Roadmap</a>
+                                <p style="margin: 5px 0 0 0; color: #666;">Project development plans and milestones.</p>
+                            </li>
+                            <li style="margin-bottom: 15px;">
+                                <a href="https://github.com/lexbor/lexbor" style="font-size: 18px;">GitHub</a>
+                                <p style="margin: 5px 0 0 0; color: #666;">Source code, issues, and contributions.</p>
+                            </li>
+                        </ul>
+                    </div>
+
+<%- include('body-end.ejs') %>
+<%- include('footer.ejs') %>
+</body>
+</html>

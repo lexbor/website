@@ -229,6 +229,11 @@ app.get('/admin', requireAuth, (req, res) => {
     });
 });
 
+// Developers Page
+app.get('/developers', (req, res) => {
+    res.render('developers');
+});
+
 // Fuzzers Management Routes
 app.get('/fuzzers', (req, res) => {
     let fuzzers = getFuzzers();
