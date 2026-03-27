@@ -26,11 +26,11 @@
         .status-running { color: green; font-weight: bold; }
         .status-stopped { color: red; font-weight: bold; }
         .color-white { color: #dddddd }
-        /* Базовый контейнер для адаптивности */
+
         .table-wrapper {
-            overflow-x: auto; /* Позволяет скроллить таблицу на мобильных */
-            border-radius: 8px; /* Скругление углов контейнера */
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Легкая тень для объема */
+            overflow-x: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .styled-table {
@@ -42,7 +42,7 @@
         }
 
         .styled-table thead tr {
-            background-color: #009879; /* Акцентный цвет заголовка */
+            background-color: #009879;
             text-align: left;
         }
 
@@ -56,24 +56,21 @@
 
         .styled-table th,
         .styled-table td {
-            padding: 9px 11px; /* Просторные отступы для читаемости */
+            padding: 9px 11px;
         }
 
         .styled-table tbody tr {
-            border-bottom: 1px solid #dddddd; /* Разделительные линии */
+            border-bottom: 1px solid #dddddd;
         }
 
-        /* Эффект "зебры" для четных строк */
         .styled-table tbody tr:nth-of-type(even) {
             background-color: #f3f3f3;
         }
 
-        /* Выделение последней линии */
         .styled-table tbody tr:last-of-type {
             border-bottom: 2px solid #009879;
         }
 
-        /* Подсветка строки при наведении курсора */
         .styled-table tbody tr:hover {
             background-color: #f1f1f1;
             cursor: default;
