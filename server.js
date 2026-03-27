@@ -14,7 +14,7 @@ const io = socketIo(server);
 const port = 3000;
 
 const FUZZERS_FILE = path.join(__dirname, 'fuzzers.json');
-const LEXBOR_DIR = process.env.LEXBOR_DIR || path.join(__dirname, '..', 'lexbor');
+const LEXBOR_DIR = process.env.LEXBOR_DIR || path.join(__dirname, '..', 'lexbor-site');
 const LEXBOR_REPO_URL = process.env.LEXBOR_REPO_URL || 'https://github.com/lexbor/lexbor.git';
 const AMALGAMATION_CACHE_DIR = path.join(__dirname, '.amalgamation_cache');
 
@@ -232,6 +232,11 @@ app.get('/admin', requireAuth, (req, res) => {
 // Developers Page
 app.get('/developers', (req, res) => {
     res.render('developers');
+});
+
+// Lexbor Page
+app.get('/developers/lexbor', (req, res) => {
+    res.render('lexbor');
 });
 
 // Fuzzers Management Routes

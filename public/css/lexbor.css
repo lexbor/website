@@ -1,0 +1,128 @@
+.doctype {color: rgb(120, 120, 120)}
+.comment {color: rgb(10, 164, 46)}
+.element {color: rgb(104, 128, 242)}
+.element > span.name {color: rgb(104, 128, 242)}
+.element > span.attrs {color: rgb(104, 128, 242)}
+.element > span.attrs > .name {color: rgb(104, 117, 193)}
+.element > span.attrs > .value {color: rgb(196, 76, 15)}
+.text {color: rgb(105, 105, 105); white-space: pre-wrap}
+span.single-tail > .element {color: rgb(104, 128, 242)}
+
+#inputHTML {
+    font-family: monospace;
+    font-size: 14px;
+    padding: 6px 10px;
+    width: 100%;
+    height: 20em;
+    box-sizing: border-box;
+}
+
+input[type="text"] {
+    font-family: monospace;
+    font-size: 14px;
+    padding: 6px 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.serialize-opts {
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+}
+
+.serialize-opts label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+#outputHTML ul {
+    list-style-type: none;
+}
+
+#outputHTML > ul {
+    margin: 0;
+    padding: 0;
+}
+
+#outputHTML ul ul {
+    padding-left: 16px;
+}
+
+#outputHTML li {
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+#outputHTML.pre-text {
+    white-space: pre;
+}
+
+ul > li.has-children.element > :first-child::before {
+    content: "\25B6";
+    display: inline-block;
+    color: rgb(165, 171, 205);
+    margin: -1px 3px 0 0;
+    transition: transform 0.2s;
+    font-size: 0.5em;
+    vertical-align: middle;
+    transform: rotate(90deg);
+    cursor: pointer;
+}
+
+ul > li.collapsed.element > :first-child::before {
+    transform: rotate(0deg);
+}
+
+span.collapsed-tail {
+    color: rgb(153, 153, 153);
+}
+
+li.collapsed > ul {
+    display: none;
+}
+
+li.close-collapsed {
+    display: none;
+}
+
+.nested {
+    display: none;
+}
+
+.active {
+    display: block;
+}
+
+[id^="o-"].highlight-block {
+    background: rgba(189, 224, 255, 0.709);
+    border-radius: 8px;
+    transition: background 0.5s;
+}
+
+[id^="o-"].highlight-block:not(.collapsed) {
+    border-radius: 8px;
+    border-bottom-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+}
+
+[id^="c-"].highlight-block {
+    background: rgba(189, 224, 255, 0.709);
+    border-radius: 8px;
+    border-top-right-radius: 0px;
+    border-top-left-radius: 0px;
+    transition: background 0.5s;
+}
+
+#outputHTML.pre-text span.element.selected {
+    background: rgba(189, 224, 255, 0.709);
+    border-radius: 8px;
+    transition: background 0.5s;
+}

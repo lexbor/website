@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lexbor Engine — lexbor</title>
+<%- include('header.ejs') %>
+    <link rel="stylesheet" href="/css/lexbor.css">
+    <script src="/js/lexbor-api.js"></script>
+    <script src="/js/lexbor.js"></script>
+</head>
+<body>
+<%- include('body.ejs') %>
+
+<h2>Lexbor, WASM</h2>
+
+<textarea id="inputHTML" rows="8">
+&lt;div class="container"&gt;
+&lt;h1 id="title"&gt;Hello&lt;/h1&gt;
+&lt;p class="text"&gt;First paragraph&lt;/p&gt;
+&lt;p class="text"&gt;Second paragraph&lt;/p&gt;
+&lt;ul&gt;
+    &lt;li&gt;Item 1&lt;/li&gt;
+    &lt;li&gt;Item 2&lt;/li&gt;
+    &lt;li&gt;Item 3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;noscript&gt;Enable JS&lt;/noscript&gt;
+&lt;/div&gt;
+</textarea>
+
+<div class="controls">
+    <input type="file" id="file-input" accept="">
+    <button id="btn-parse" onclick="doParse()">Parse</button>
+    <button id="btn-destroy" onclick="doDestroy()">Destroy</button>
+</div>
+
+<h3>Serialization Options:</h3>
+<div class="serialize-opts"></div>
+<h3>Serialized output:</h3>
+<div id="outputHTML" class="output">
+</div>
+<h3>CSS Selector:</h3>
+<div class="selector-row">
+    <input type="text" id="selector-input" placeholder="e.g. div.container p, ul > li:first-child">
+    <span class="match-count" id="match-count"></span>
+</div>
+
+<%- include('body-end.ejs') %>
+<script src="/js/lexbor-ui.js"></script>
+<%- include('footer.ejs') %>
+</body>
+</html>
